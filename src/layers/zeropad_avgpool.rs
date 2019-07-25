@@ -9,6 +9,8 @@ pub fn zeropad_avgpool(inputs: Array3<f32>) -> Array3<f32> {
             if input.shape()[1] & 1 == 1 {
                 output.slice_mut(s![.., output.shape()[1]-1]).assign(
                     &input.slice(s![.., input.shape()[1]-1]));
+                Zip::from(&mut output.slice_mut(s![.., output.shape()[1]-1]))
+                    .apply(|o| *o/=2.);
             }
             for (i, mut o) in input.exact_chunks((input.shape()[0], 2)).into_iter()
                 .zip(output.gencolumns_mut()) {
@@ -39,7 +41,7 @@ mod tests {
         let inputs = arr3(&[[[1., 2., 3., 4., 5.],
                              [6., 7., 8., 9., 10.]]]);
         let outputs = zeropad_avgpool(inputs);
-        assert_eq!(outputs, arr3(&[[[1.5, 3.5, 5.], [6.5, 8.5, 10.]]]));
+        assert_eq!(outputs, arr3(&[[[1.5, 3.5, 2.5], [6.5, 8.5, 5.]]]));
     }
 
 }
