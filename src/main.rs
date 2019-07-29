@@ -1,14 +1,14 @@
-use std::env;
-use std::fs::File;
-use std::io::{BufReader, BufRead};
+use std::net::{TcpListener};
 use ndarray::{Array1, Array2, Array3, ArrayView2, s, Zip};
-use crate::weights_buffer::{WeightsBuffer, FileWeightsBuffer};
+use byteorder::{NetworkEndian, ReadBytesExt};
+use crate::weights_buffer::{WeightsBuffer, TcpWeightsBuffer};
 use crate::layers::{conv1d::conv1d, 
     batchnorm_add_activate::batchnorm_add_activate,
     zeropad_avgpool::zeropad_avgpool,
     dense::dense, 
     dense::dense_sigmoid, 
 };
+
 
 mod weights_buffer;
 mod layers;
@@ -111,48 +111,23 @@ fn nn_eval(inputs: Array2<f32>, weights: &mut Box<dyn WeightsBuffer>) -> Array1<
 }
 
 fn main() {
-    let weights_filename = &env::args().collect::<Vec<_>>()[1];
-    let mut weights = Box::new(FileWeightsBuffer::new(weights_filename)) 
+    // listen to launcher
+    let listener = TcpListener::bind("localhost:1234").unwrap();
+    let mut stream = listener.accept().unwrap().0;
+    let port = stream.read_u16::<NetworkEndian>().unwrap();
+    let mut weights = Box::new(TcpWeightsBuffer::new(stream)) 
         as Box<dyn WeightsBuffer>;
 
-    let inputs_filename_1 = &env::args().collect::<Vec<_>>()[2];
-    let inputs_file_1 = BufReader::new(
-        File::open(inputs_filename_1).unwrap());
-    let mut iter_1 = inputs_file_1.lines();
-    iter_1.next();
-    let inputs_filename_2 = &env::args().collect::<Vec<_>>()[3];
-    let inputs_file_2 = BufReader::new(
-        File::open(inputs_filename_2).unwrap());
-    let mut iter_2 = inputs_file_2.lines();
-    iter_2.next();
+    // lister to client
+    let listener = TcpListener::bind(("localhost", port)).unwrap();
+    let mut stream = listener.accept().unwrap().0;
+    let n_inputs = stream.read_u32::<NetworkEndian>().unwrap() as usize;
+    let input_len = 12634usize; 
 
-    let n_inputs = 100usize;
-    let input_len = 12634usize;
-    let mut inputs = Array2::zeros((input_len, n_inputs));
-    for (i, line) in iter_1.enumerate() {
-        let line = line.unwrap()
-                    .split_whitespace()
-                    .map(|x| x.parse::<f32>().unwrap())
-                    .skip(2)
-                    .take(usize::min(50, n_inputs))
-                    .collect::<Vec<_>>();
-        inputs.slice_mut(s![i, ..usize::min(50, n_inputs)]).assign(
-            &Array1::<f32>::from_vec(line));
-    }
-    if i64::max(0, n_inputs as i64 - 50) > 0 {
-        for (i, line) in iter_2.enumerate() {
-            let line = line.unwrap()
-                .split_whitespace()
-                .map(|x| x.parse::<f32>().unwrap())
-                .skip(2)
-                .take(n_inputs-50)
-                .collect::<Vec<_>>();
-            inputs.slice_mut(s![i, (n_inputs-50)..]).assign(
-                &Array1::<f32>::from_vec(line));
-        }
-    }
-    let inputs = Array2::<f32>::reversed_axes(inputs);
-    //println!("inputs {:#?}", inputs.slice(s![0, ..10]));
+    let mut inputs = Array2::<f32>::zeros((n_inputs, input_len));
+    Zip::from(&mut inputs)
+        .apply(|i| *i = stream.read_f32::<NetworkEndian>().unwrap());
+    ////println!("inputs {:#?}", inputs.slice(s![0, ..10]));
     let outputs = nn_eval(inputs, &mut weights);
     println!("outputs {:?}", outputs);
 }

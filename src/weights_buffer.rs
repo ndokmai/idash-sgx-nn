@@ -1,7 +1,8 @@
 use std::mem::swap;
-use std::io::{BufReader, BufRead, Cursor};
+use std::io::{BufReader, BufRead, Cursor, Read};
 use std::fs::File;
 use std::mem::size_of;
+use std::net::TcpStream;
 use byteorder::{ReadBytesExt,NativeEndian};
  
 
@@ -49,11 +50,13 @@ impl WeightsBuffer for RandomWeightsBuffer {
     }
 }
 
+#[allow(dead_code)]
 pub struct FileWeightsBuffer {
     buffer: Box<dyn BufRead>,
 }
 
 impl FileWeightsBuffer {
+    #[allow(dead_code)]
     pub fn new(filename: &str) -> Self {
         let f = File::open(filename).unwrap();
         Self { buffer: Box::new(BufReader::new(f)) as Box<dyn BufRead> }
@@ -72,6 +75,29 @@ impl WeightsBuffer for FileWeightsBuffer{
         let mut out = Vec::<f32>::with_capacity(n);
         let mut buf = vec![0u8; size_of::<f32>()*n];
         self.buffer.read_exact(&mut buf).unwrap();
+        let mut rdr = Cursor::new(buf);
+        for _ in 0..n {
+            out.push(rdr.read_f32::<NativeEndian>().unwrap());
+        }
+        out
+    }
+}
+
+pub struct TcpWeightsBuffer {
+    stream: TcpStream, 
+}
+
+impl TcpWeightsBuffer {
+    pub fn new(stream: TcpStream) -> Self {
+        Self { stream }
+    }
+}
+
+impl WeightsBuffer for TcpWeightsBuffer {
+    fn getn(&mut self, n: usize) -> Vec<f32> {
+        let mut out = Vec::<f32>::with_capacity(n);
+        let mut buf = vec![0u8; size_of::<f32>()*n];
+        self.stream.read_exact(&mut buf).unwrap();
         let mut rdr = Cursor::new(buf);
         for _ in 0..n {
             out.push(rdr.read_f32::<NativeEndian>().unwrap());
