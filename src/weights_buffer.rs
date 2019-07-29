@@ -29,11 +29,13 @@ impl WeightsBuffer for TestWeightsBuffer {
 
 }
 
+#[allow(dead_code)]
 pub struct RandomWeightsBuffer {
     index: usize,
 }
 
 impl RandomWeightsBuffer {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self { index: 1 }
     }
@@ -56,6 +58,8 @@ impl FileWeightsBuffer {
         let f = File::open(filename).unwrap();
         Self { buffer: Box::new(BufReader::new(f)) as Box<dyn BufRead> }
     }
+
+    #[allow(dead_code)]
     pub fn with_capacity(capacity: usize, filename: &str) -> Self {
         let f = File::open(filename).unwrap();
         Self { buffer: Box::new(BufReader::with_capacity(capacity, f)) 

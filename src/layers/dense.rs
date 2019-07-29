@@ -17,8 +17,8 @@ pub fn dense(inputs: ArrayView2<f32>, n_units: usize,
                 .and(weights.genrows())
                 .apply(|o, weights_row| {
                     let dot = input.dot(&weights_row.slice(s![1..]));
-                    let bias = weights_row[[0]];
-                    *o = f32::max(dot+bias,0.)
+                    let bias = weights_row[0];
+                    *o = f32::max((dot+bias) as f32,0.)
                 })
 
         });

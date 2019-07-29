@@ -14,9 +14,9 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
             .and(inputs.outer_iter())
             .apply(|mut output, input| output.assign(&weights.dot(&input)) );
         return outputs;
-    } if kernel_size==3 {
+    } if kernel_size==3 && strides==1 {
         let mut outputs = Array3::<f32>::zeros(
-            (inputs.shape()[0], n_kernel, (inputs.shape()[2]+strides-1)/strides));
+            (inputs.shape()[0], n_kernel, inputs.shape()[2]));
         let weights = 
             Array3::<f32>::from_shape_vec((n_kernel, inputs.shape()[1], kernel_size), 
                                           weights.getn(n_kernel*inputs.shape()[1]*
@@ -36,15 +36,89 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
                             (&kernel.slice(s![.., ..2]) * 
                              &input.slice(s![.., (input.shape()[1]-2)..])
                              .to_owned()).sum();
-
                         for (o, w) in output_row.slice_mut(s![1..last])
                             .iter_mut()
-                            .step_by(strides)
                             .zip(input.windows((input.shape()[0], 3))
                                  .into_iter()
                                  .step_by(strides)) {
                                 *o = (&w * &kernel).sum();
+                                 
                             }
+                    });
+            } );
+        return outputs;
+    } if kernel_size==3 && strides==2 {
+        let mut outputs = Array3::<f32>::zeros(
+            (inputs.shape()[0], n_kernel, (inputs.shape()[2]+1)/2));
+        let weights = 
+            Array3::<f32>::from_shape_vec((n_kernel, inputs.shape()[1], kernel_size), 
+                                          weights.getn(n_kernel*inputs.shape()[1]*
+                                                       kernel_size))
+            .unwrap();
+        //Zip::from(outputs.outer_iter_mut())
+            //.and(inputs.outer_iter())
+            //.apply(|mut output, input| {
+                //Zip::from(output.genrows_mut())
+                    //.and(weights.outer_iter())
+                    //.apply( |mut output_row, kernel| {
+                        //let last = output_row.shape()[0]-1;
+                        //if input.shape()[1] & 1 == 0 {
+                            //output_row[[last]] = 
+                                //(&kernel.slice(s![.., ..2]) * 
+                                 //&input.slice(s![.., (input.shape()[1]-2)..])
+                                 //.to_owned()).sum();
+                        //} else {
+                            //output_row[[last]] = 
+                                //(&kernel.slice(s![.., ..1]) * 
+                                 //&input.slice(s![.., (input.shape()[1]-1)..])
+                                 //.to_owned()).sum();
+                        //}
+                        //for (o, w) in output_row.slice_mut(s![..last])
+                            //.iter_mut()
+                            //.zip(input.windows((input.shape()[0], 3))
+                                 //.into_iter()
+                                 //.step_by(2)) {
+                                //*o = (&w * &kernel).sum();
+                            //}
+                    //});
+            //} );
+        Zip::from(outputs.outer_iter_mut())
+            .and(inputs.outer_iter())
+            .apply(|mut output, input| {
+                Zip::from(output.genrows_mut())
+                    .and(weights.outer_iter())
+                    .apply( |mut output_row, kernel| {
+                        let last = output_row.shape()[0]-1;
+                        if input.shape()[1] & 1 == 0 {
+                            output_row[[last]] = 
+                                (&kernel.slice(s![.., ..2]) * 
+                                 &input.slice(s![.., (input.shape()[1]-2)..])
+                                 .to_owned()).sum();
+                            for (o, w) in output_row.slice_mut(s![..last])
+                                .iter_mut()
+                                    .zip(input.windows((input.shape()[0], 3))
+                                         .into_iter()
+                                         .step_by(2)) {
+                                        *o = (&w * &kernel).sum();
+                                    }
+                        } else {
+                            output_row[[0]] = 
+                                (&kernel.slice(s![.., 1..]) * 
+                                 &input.slice(s![.., ..2])
+                                 .to_owned()).sum();
+                            output_row[[last]] = 
+                                (&kernel.slice(s![.., ..2]) * 
+                                 &input.slice(s![.., (input.shape()[1]-2)..])
+                                 .to_owned()).sum();
+                            for (o, w) in output_row.slice_mut(s![1..last])
+                                .iter_mut()
+                                    .zip(input.slice(s![.., 1..])
+                                         .windows((input.shape()[0], 3))
+                                         .into_iter()
+                                         .step_by(2)) {
+                                        *o = (&w * &kernel).sum();
+                                    }
+                        }
                     });
             } );
         return outputs;

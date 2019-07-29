@@ -3,6 +3,8 @@ import h5py
 import numpy as np
 import struct
 
+EPSILON = 1e-3
+
 def write_elem(f, i):
     s = struct.pack('f', i)
     f.write(s)
@@ -32,28 +34,35 @@ def conv1d(conv1d_id, weights, fout):
 
 def batchnorm(batchnorm_id, weights, fout):
     key = 'batch_normalization_' + str(batchnorm_id)
-    d = weights[key_1][key_1]
-    write_array(fout, d['moving_mean:0'])
-    write_array(fout, d['moving_variance:0'])
-    write_array(fout, d['gamma:0'])
-    write_array(fout, d['beta:0'])
+    d = weights[key][key]
+    means = d['moving_mean:0']
+    variances = d['moving_variance:0']
+    gammas = d['gamma:0']
+    betas = d['beta:0']
+    write_array(fout, means)
+    write_array(fout, variances)
+    write_array(fout, gammas)
+    write_array(fout, betas)
     return batchnorm_id+1
+
+def batchnorm_add_activate_full(batchnorm_id, weights, fout):
+    batchnorm_id = batchnorm(batchnorm_id, weights, fout)
+    batchnorm_id = batchnorm(batchnorm_id, weights, fout)
+    return batchnorm_id
 
 def batchnorm_add_activate(batchnorm_id, weights, fout):
     key_1 = 'batch_normalization_' + str(batchnorm_id)
     key_2 = 'batch_normalization_' + str(batchnorm_id + 1)
     d_1 = weights[key_1][key_1]
     d_2 = weights[key_2][key_2]
-    d_1_sd = np.sqrt(np.array(d_1['moving_variance:0'])+0.001)
-    d_2_sd = np.sqrt(np.array(d_2['moving_variance:0'])+0.001)
+    d_1_sd = np.sqrt(np.array(d_1['moving_variance:0'])+EPSILON)
+    d_2_sd = np.sqrt(np.array(d_2['moving_variance:0'])+EPSILON)
     a_1 = np.divide(d_1['gamma:0'], d_1_sd)
     a_2 = np.divide(d_2['gamma:0'], d_2_sd)
     b = np.subtract(np.add(d_1['beta:0'], d_2['beta:0']), \
             np.add(
-                np.divide(np.multiply(d_1['moving_mean:0'], d_1['gamma:0']), \
-                          d_1_sd), \
-                np.divide(np.multiply(d_2['moving_mean:0'], d_2['gamma:0']), \
-                          d_2_sd)))
+                np.multiply(np.divide(d_1['moving_mean:0'],d_1_sd), d_1['gamma:0']), \
+                np.multiply(np.divide(d_2['moving_mean:0'],d_2_sd), d_2['gamma:0'])))
     write_array(fout, a_1)
     write_array(fout, a_2)
     write_array(fout, b)
