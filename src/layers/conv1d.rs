@@ -1,4 +1,5 @@
 use ndarray::{Array2, Array3, ArrayView3, s, Zip};
+use ndarray_parallel::prelude::*;
 use crate::weights_buffer::WeightsBuffer;
 
 pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize, 
@@ -12,7 +13,7 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
             .unwrap();
         Zip::from(outputs.outer_iter_mut())
             .and(inputs.outer_iter())
-            .apply(|mut output, input| output.assign(&input.dot(&weights.t())));
+            .par_apply(|mut output, input| output.assign(&input.dot(&weights.t())));
         return outputs;
     } if kernel_size==3 && strides==1 {
         let mut outputs = Array3::<f32>::zeros(
@@ -24,7 +25,7 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
             .unwrap();
         Zip::from(outputs.outer_iter_mut())
             .and(inputs.outer_iter())
-            .apply(|mut output, input| {
+            .par_apply(|mut output, input| {
                 Zip::from(&mut output.slice_mut(s![0, ..]))
                     .and(weights.outer_iter())
                     .apply(|o, kernel|  {
@@ -77,7 +78,7 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
 
         Zip::from(outputs.outer_iter_mut())
             .and(inputs.outer_iter())
-            .apply(|mut output, input| {
+            .par_apply(|mut output, input| {
                 if input.shape()[0] & 1 == 0 {
                     Zip::from(&mut output.slice_mut(s![-1, ..]))
                         .and(weights.outer_iter())

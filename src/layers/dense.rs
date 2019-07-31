@@ -1,4 +1,5 @@
 use ndarray::{Array1, Array2, ArrayView2, Zip, s};
+use ndarray_parallel::prelude::*;
 use crate::weights_buffer::WeightsBuffer;
 
 pub fn dense(inputs: ArrayView2<f32>, n_units: usize, 
@@ -12,7 +13,7 @@ pub fn dense(inputs: ArrayView2<f32>, n_units: usize,
 
     Zip::from(outputs.genrows_mut())
         .and(inputs.genrows())
-        .apply(|mut output, input| {
+        .par_apply(|mut output, input| {
             Zip::from(&mut output)
                 .and(weights.genrows())
                 .apply(|o, weights_row| {
@@ -34,7 +35,7 @@ pub fn dense_sigmoid(inputs: Array2<f32>,
         weights.getn(inputs.shape()[1])).unwrap();
     Zip::from(&mut outputs)
         .and(inputs.genrows())
-        .apply(|output, input| *output = 1./(1.+(-input.dot(&weights)-bias[0]).exp()));
+        .par_apply(|output, input| *output = 1./(1.+(-input.dot(&weights)-bias[0]).exp()));
     outputs
 }
 

@@ -1,4 +1,5 @@
 use ndarray::{Array1, Array3, ArrayView3, Zip};
+use ndarray_parallel::prelude::*;
 use crate::weights_buffer::WeightsBuffer;
 
 pub fn batchnorm_add_activate(mut left_inputs: Array3<f32>, 
@@ -18,7 +19,7 @@ pub fn batchnorm_add_activate(mut left_inputs: Array3<f32>,
             weights.getn(left_inputs.shape()[2])).unwrap();
     Zip::from(left_inputs.outer_iter_mut())
         .and(right_inputs.outer_iter())
-        .apply(|mut l, r| {
+        .par_apply(|mut l, r| {
             Zip::from(l.genrows_mut())
                 .and(r.genrows())
                 .apply(|mut l_c, r_c| {
