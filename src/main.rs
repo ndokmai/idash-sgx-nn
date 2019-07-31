@@ -2,13 +2,12 @@ use std::net::{TcpListener};
 use ndarray::{Array1, Array2, Array3, ArrayView2, s, Zip};
 use byteorder::{NetworkEndian, ReadBytesExt};
 use crate::weights_buffer::{WeightsBuffer, TcpWeightsBuffer};
-use crate::layers::{conv1d::conv1d, 
+use crate::layers::{conv1d::conv1d,
     batchnorm_add_activate::batchnorm_add_activate,
     zeropad_avgpool::zeropad_avgpool,
     dense::dense, 
     dense::dense_sigmoid, 
 };
-
 
 mod weights_buffer;
 mod layers;
@@ -50,6 +49,13 @@ fn debug_print(title: &str, array: ArrayView2<f32>) {
     println!("\n\n");
 
 }
+fn concat(input1: Array2<f32>, input2: Array2<f32>) -> Array2<f32> {
+    let mut outputs = Array2::zeros((input1.shape()[0], 
+                                     input2.shape()[1]+input1.shape()[1]));
+    outputs.slice_mut(s![.., ..input1.shape()[1]]).assign(&input1);
+    outputs.slice_mut(s![.., input1.shape()[1]..]).assign(&input2);
+    outputs
+}
 
 fn res1d(inputs: Array3<f32>, n_kernel: usize, kernel_size: usize, strides: usize,
          weights: &mut Box<dyn WeightsBuffer>) -> Array3<f32> {
@@ -75,18 +81,10 @@ fn res1d(inputs: Array3<f32>, n_kernel: usize, kernel_size: usize, strides: usiz
     out
 }
 
-fn concat(input1: Array2<f32>, input2: Array2<f32>) -> Array2<f32> {
-    let mut outputs = Array2::zeros((input1.shape()[0], 
-                                     input2.shape()[1]+input1.shape()[1]));
-    outputs.slice_mut(s![.., ..input1.shape()[1]]).assign(&input1);
-    outputs.slice_mut(s![.., input1.shape()[1]..]).assign(&input2);
-    outputs
-}
-
 fn nn_eval(inputs: Array2<f32>, weights: &mut Box<dyn WeightsBuffer>) -> Array1<f32> {
     let v2 = dense(inputs.view(), 64, weights);
     //debug_print(&"dense", v2.slice(s![..1, ..]));
-    let shape = (inputs.shape()[0], 1, inputs.shape()[1]);
+    let shape = (inputs.shape()[0], inputs.shape()[1], 1);
     let inputs = inputs.into_shape(shape).unwrap();
     let mut v1 = res1d(inputs, 4, 3, 1, weights);
     for i in &[8usize, 16, 32, 64, 128, 256, 512, 1024] {
@@ -94,16 +92,7 @@ fn nn_eval(inputs: Array2<f32>, weights: &mut Box<dyn WeightsBuffer>) -> Array1<
         v1 = res1d(v1, *i, 3, 2, weights);
     }
     let shape = (v1.shape()[0], v1.shape()[1]*v1.shape()[2]);
-    let mut flats = Array2::<f32>::zeros(shape);
-    Zip::from(flats.genrows_mut())
-        .and(v1.outer_iter())
-        .apply(|mut flat, e|
-               Zip::from(flat.exact_chunks_mut((e.shape()[0],)))
-               .and(e.gencolumns())
-               .apply(|mut a, b| a.assign(&b))
-               );
-
-    let v1 = flats; 
+    let v1 = v1.into_shape(shape).unwrap();
     let v = concat(v1, v2);
     let v = dense(v.view(), 32, weights);
     //debug_print(&"dense", v.slice(s![..1, ..]));

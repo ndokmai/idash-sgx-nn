@@ -6,21 +6,21 @@ pub fn batchnorm_add_activate(mut left_inputs: Array3<f32>,
                           weights: &mut Box<dyn WeightsBuffer>) -> Array3<f32> {
     let left_batchnorm_params = 
         Array1::<f32>::from_shape_vec(
-            (left_inputs.shape()[1], ),
-            weights.getn(left_inputs.shape()[1],)).unwrap();
+            (left_inputs.shape()[2], ),
+            weights.getn(left_inputs.shape()[2],)).unwrap();
     let right_batchnorm_params = 
         Array1::<f32>::from_shape_vec(
-            (left_inputs.shape()[1],), 
-            weights.getn(left_inputs.shape()[1])).unwrap();
+            (left_inputs.shape()[2],), 
+            weights.getn(left_inputs.shape()[2])).unwrap();
     let common_batchnorm_params = 
         Array1::<f32>::from_shape_vec(
-            (left_inputs.shape()[1], ), 
-            weights.getn(left_inputs.shape()[1])).unwrap();
+            (left_inputs.shape()[2], ), 
+            weights.getn(left_inputs.shape()[2])).unwrap();
     Zip::from(left_inputs.outer_iter_mut())
         .and(right_inputs.outer_iter())
         .apply(|mut l, r| {
-            Zip::from(l.gencolumns_mut())
-                .and(r.gencolumns())
+            Zip::from(l.genrows_mut())
+                .and(r.genrows())
                 .apply(|mut l_c, r_c| {
                     Zip::from(&mut l_c)
                         .and(&r_c)
