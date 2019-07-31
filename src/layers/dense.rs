@@ -4,7 +4,6 @@ use crate::weights_buffer::WeightsBuffer;
 
 pub fn dense(inputs: ArrayView2<f32>, n_units: usize, 
          weights: &mut Box<dyn WeightsBuffer>) -> Array2<f32> {
-
     let mut outputs = Array2::zeros((inputs.shape()[0], n_units));
     let weights = 
         Array2::<f32>::from_shape_vec(

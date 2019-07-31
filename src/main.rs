@@ -81,7 +81,9 @@ fn res1d(inputs: Array3<f32>, n_kernel: usize, kernel_size: usize, strides: usiz
     out
 }
 
+const N_THREAD: usize = 8;
 fn nn_eval(inputs: Array2<f32>, weights: &mut Box<dyn WeightsBuffer>) -> Array1<f32> {
+    rayon::ThreadPoolBuilder::new().num_threads(N_THREAD).build_global().unwrap();
     let v2 = dense(inputs.view(), 64, weights);
     //debug_print(&"dense", v2.slice(s![..1, ..]));
     let shape = (inputs.shape()[0], inputs.shape()[1], 1);
