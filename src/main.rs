@@ -1,7 +1,8 @@
-use std::net::{TcpListener};
+use std::io::BufReader;
+use std::net::{TcpListener, TcpStream};
 use ndarray::{Array1, Array2, Array3, ArrayView2, s, Zip};
 use byteorder::{NetworkEndian, ReadBytesExt};
-use crate::weights_buffer::{WeightsBuffer, TcpWeightsBuffer};
+use crate::weights_buffer::{WeightsBuffer, MemTcpWeightsBuffer};
 use crate::layers::{conv1d::conv1d,
     batchnorm_add_activate::batchnorm_add_activate,
     zeropad_avgpool::zeropad_avgpool,
@@ -81,9 +82,7 @@ fn res1d(inputs: Array3<f32>, n_kernel: usize, kernel_size: usize, strides: usiz
     out
 }
 
-const N_THREAD: usize = 8;
 fn nn_eval(inputs: Array2<f32>, weights: &mut Box<dyn WeightsBuffer>) -> Array1<f32> {
-    rayon::ThreadPoolBuilder::new().num_threads(N_THREAD).build_global().unwrap();
     let v2 = dense(inputs.view(), 64, weights);
     //debug_print(&"dense", v2.slice(s![..1, ..]));
     let shape = (inputs.shape()[0], inputs.shape()[1], 1);
@@ -101,25 +100,39 @@ fn nn_eval(inputs: Array2<f32>, weights: &mut Box<dyn WeightsBuffer>) -> Array1<
     dense_sigmoid(v, weights)
 }
 
+
 fn main() {
-    // listen to launcher
-    let listener = TcpListener::bind("localhost:1234").unwrap();
-    let mut stream = listener.accept().unwrap().0;
+    const N_THREAD: usize = 4;
+    const N_MAX: usize = 20;
+    const INPUT_LEN: usize = 12634;
+    rayon::ThreadPoolBuilder::new().num_threads(N_THREAD).build_global().unwrap();
+    let mut stream = TcpStream::connect("localhost:1234")
+                                    .expect("Unable to connect.");
+
     let port = stream.read_u16::<NetworkEndian>().unwrap();
-    let mut weights = Box::new(TcpWeightsBuffer::new(stream)) 
+    let mut weights = Box::new(MemTcpWeightsBuffer::new(stream)) 
         as Box<dyn WeightsBuffer>;
 
     // lister to client
     let listener = TcpListener::bind(("localhost", port)).unwrap();
-    let mut stream = listener.accept().unwrap().0;
-    let n_inputs = stream.read_u32::<NetworkEndian>().unwrap() as usize;
-    let input_len = 12634usize; 
-
-    let mut inputs = Array2::<f32>::zeros((n_inputs, input_len));
-    Zip::from(&mut inputs)
-        .apply(|i| *i = stream.read_f32::<NetworkEndian>().unwrap());
-    ////println!("inputs {:#?}", inputs.slice(s![0, ..10]));
-    let outputs = nn_eval(inputs, &mut weights);
-    println!("outputs {:?}", outputs);
+    let mut stream = BufReader::new(listener.accept().unwrap().0);
+    loop {
+        let n_inputs = stream.read_u32::<NetworkEndian>().unwrap() as usize;
+        if n_inputs==0 {
+            break;
+        }
+        if n_inputs > N_MAX {
+            panic!("Too many inputs");
+        }
+        let mut inputs = Array2::<f32>::zeros((n_inputs, INPUT_LEN));
+        Zip::from(&mut inputs)
+            .apply(|i| *i = stream.read_f32::<NetworkEndian>().unwrap());
+        let outputs = nn_eval(inputs, &mut weights);
+        for o in &outputs {
+            print!("{}\t", o);
+        }
+        println!("");
+    }
+    
 }
 

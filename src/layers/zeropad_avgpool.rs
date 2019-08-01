@@ -1,7 +1,6 @@
 use ndarray::{Zip, Array3, s};
 use ndarray_parallel::prelude::*;
 
-// TODO Optimize this
 pub fn zeropad_avgpool(mut inputs: Array3<f32>) -> Array3<f32> {
     let mut outputs = Array3::zeros(
         (inputs.shape()[0], (inputs.shape()[1]+1)/2, inputs.shape()[2]));
@@ -18,7 +17,7 @@ pub fn zeropad_avgpool(mut inputs: Array3<f32>) -> Array3<f32> {
                     for (a, b) in (o.iter_mut()).zip(i.gencolumns().into_iter()) {
                         *a = (b[0] + b[1])/2.;
                     }
-            }
+                }
         });
     outputs
 }

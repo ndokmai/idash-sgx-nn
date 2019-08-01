@@ -4,7 +4,7 @@ use std::fs::File;
 use std::mem::size_of;
 use std::net::TcpStream;
 use byteorder::{ReadBytesExt,NativeEndian};
- 
+
 
 pub trait WeightsBuffer {
     fn getn(&mut self, n: usize) -> Vec<f32>;
@@ -87,6 +87,7 @@ pub struct TcpWeightsBuffer {
     stream: TcpStream, 
 }
 
+#[allow(dead_code)]
 impl TcpWeightsBuffer {
     pub fn new(stream: TcpStream) -> Self {
         Self { stream }
@@ -101,6 +102,35 @@ impl WeightsBuffer for TcpWeightsBuffer {
         let mut rdr = Cursor::new(buf);
         for _ in 0..n {
             out.push(rdr.read_f32::<NativeEndian>().unwrap());
+        }
+        out
+    }
+}
+
+pub struct MemTcpWeightsBuffer {
+    weights: Vec<f32>,
+    cursor: usize,
+}
+
+impl MemTcpWeightsBuffer {
+    pub fn new(stream: TcpStream) -> Self {
+        let mut stream = BufReader::new(stream);
+        let mut weights = Vec::new();
+        let mut next = stream.read_f32::<NativeEndian>();
+        while next.is_ok() {
+            weights.push(next.unwrap());
+            next = stream.read_f32::<NativeEndian>();
+        }
+        Self { weights, cursor: 0 }
+    }
+}
+
+impl WeightsBuffer for MemTcpWeightsBuffer {
+    fn getn(&mut self, n: usize) -> Vec<f32> {
+        let out = Vec::from(&self.weights[self.cursor..(self.cursor+n)]);
+        self.cursor+=n;
+        if self.cursor == self.weights.len() {
+            self.cursor = 0;
         }
         out
     }

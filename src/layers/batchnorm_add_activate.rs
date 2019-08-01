@@ -1,4 +1,4 @@
-use ndarray::{Array1, Array3, ArrayView3, Zip, Axis};
+use ndarray::{Array1, Array3, ArrayView3, Zip};
 use ndarray_parallel::prelude::*;
 use crate::weights_buffer::WeightsBuffer;
 
