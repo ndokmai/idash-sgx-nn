@@ -38,18 +38,6 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
                                    .into_shape(shape)
                                    .unwrap());
                     });
-                Zip::from(&mut output.slice_mut(s![-1, ..]))
-                    .and(weights.outer_iter())
-                    .apply(|o, kernel|  {
-                           let shape = 2*input.shape()[1];
-                           *o = kernel.slice(s![..2, ..])
-                               .into_shape(shape)
-                               .unwrap()
-                               .dot(
-                                   &input.slice(s![-2.., ..])
-                                   .into_shape(shape)
-                                   .unwrap());
-                    });
                 for (mut output_row, input_window) in output.genrows_mut()
                     .into_iter().skip(1)
                         .zip(input.windows((3, input.shape()[1])).into_iter()) {
@@ -64,6 +52,18 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
                                                .unwrap());
                                 });
                         }
+                Zip::from(&mut output.slice_mut(s![-1, ..]))
+                    .and(weights.outer_iter())
+                    .apply(|o, kernel|  {
+                           let shape = 2*input.shape()[1];
+                           *o = kernel.slice(s![..2, ..])
+                               .into_shape(shape)
+                               .unwrap()
+                               .dot(
+                                   &input.slice(s![-2.., ..])
+                                   .into_shape(shape)
+                                   .unwrap());
+                    });
 
             });
         return outputs;
@@ -80,18 +80,6 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
             .and(inputs.outer_iter())
             .par_apply(|mut output, input| {
                 if input.shape()[0] & 1 == 0 {
-                    Zip::from(&mut output.slice_mut(s![-1, ..]))
-                        .and(weights.outer_iter())
-                        .apply(|o, kernel|  {
-                               let shape = 2*input.shape()[1];
-                               *o = kernel.slice(s![..2, ..])
-                                   .into_shape(shape)
-                                   .unwrap()
-                                   .dot(
-                                       &input.slice(s![-2.., ..])
-                                       .into_shape(shape)
-                                       .unwrap());
-                        });
                     for (mut output_row, input_window) in output.genrows_mut()
                         .into_iter()
                             .zip(input.windows((3, input.shape()[1]))
@@ -108,6 +96,18 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
                                                    .unwrap());
                                     });
                             }
+                    Zip::from(&mut output.slice_mut(s![-1, ..]))
+                        .and(weights.outer_iter())
+                        .apply(|o, kernel|  {
+                               let shape = 2*input.shape()[1];
+                               *o = kernel.slice(s![..2, ..])
+                                   .into_shape(shape)
+                                   .unwrap()
+                                   .dot(
+                                       &input.slice(s![-2.., ..])
+                                       .into_shape(shape)
+                                       .unwrap());
+                        });
                 } else {
                     Zip::from(&mut output.slice_mut(s![0, ..]))
                         .and(weights.outer_iter())
@@ -118,18 +118,6 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
                                    .unwrap()
                                    .dot(
                                        &input.slice(s![..2, ..])
-                                       .into_shape(shape)
-                                       .unwrap());
-                        });
-                    Zip::from(&mut output.slice_mut(s![-1, ..]))
-                        .and(weights.outer_iter())
-                        .apply(|o, kernel|  {
-                               let shape = 2*input.shape()[1];
-                               *o = kernel.slice(s![..2, ..])
-                                   .into_shape(shape)
-                                   .unwrap()
-                                   .dot(
-                                       &input.slice(s![-2.., ..])
                                        .into_shape(shape)
                                        .unwrap());
                         });
@@ -150,6 +138,18 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
                                                    .unwrap());
                                     });
                             }
+                    Zip::from(&mut output.slice_mut(s![-1, ..]))
+                        .and(weights.outer_iter())
+                        .apply(|o, kernel|  {
+                               let shape = 2*input.shape()[1];
+                               *o = kernel.slice(s![..2, ..])
+                                   .into_shape(shape)
+                                   .unwrap()
+                                   .dot(
+                                       &input.slice(s![-2.., ..])
+                                       .into_shape(shape)
+                                       .unwrap());
+                        });
                 }
             });
         return outputs;
