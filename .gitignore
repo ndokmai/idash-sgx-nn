@@ -1,2 +1,6 @@
-/target
+target
 **/*.rs.bk
+/build
+/data
+/scripts/preprocess
+Cargo.lock
