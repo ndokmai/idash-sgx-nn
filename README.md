@@ -4,5 +4,5 @@
 
 2. Run the build script:
 ```bash
-./scripts/build.rs
+./scripts/build.sh
 ```
