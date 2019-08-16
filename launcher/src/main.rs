@@ -4,8 +4,8 @@ use std::fs::{File};
 use std::io::{Read, Write, BufReader, BufRead, BufWriter};
 use std::{thread::sleep, time::Duration};
 use std::process::Command;
-use byteorder::{NetworkEndian, WriteBytesExt};
-use ndarray::{Array1, Array2, s, Axis};
+use byteorder::{NetworkEndian, NativeEndian, WriteBytesExt};
+use ndarray::{Array1, Array2, s, Axis, Zip};
 
 fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str) {
     let mut child = None;
@@ -31,7 +31,7 @@ fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str
     let mut stream = listener.accept().unwrap().0;
 
     // send client port
-    stream.write_u16::<NetworkEndian>(client_port).unwrap();
+    stream.write_u16::<NativeEndian>(client_port).unwrap();
 
     // send weights file
     let mut f = File::open(fname).expect("Error opening file.");
@@ -48,17 +48,10 @@ fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str
     }
 }
 
+const N_INPUTS: usize = 100; 
+const INPUT_LEN: usize = 12634;
 
 fn client(host: &str, fname_1: &str, fname_2: &str) {
-
-    let mut stream = TcpStream::connect(host);
-    while stream.is_err() {
-        sleep(Duration::from_millis(50));
-        stream = TcpStream::connect(host);
-    }
-    let mut stream = BufWriter::new(stream.unwrap());
-
-    // send inputs files
     let inputs_file_1 = BufReader::new(
         File::open(fname_1).unwrap());
     let mut iter_1 = inputs_file_1.lines();
@@ -68,8 +61,6 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
     let mut iter_2 = inputs_file_2.lines();
     iter_2.next();
 
-    const N_INPUTS: usize = 100; 
-    const INPUT_LEN: usize = 12634;
     let mut inputs = Array2::zeros((INPUT_LEN, N_INPUTS));
     for (i, line) in iter_1.enumerate() {
         let line = line.unwrap()
@@ -93,18 +84,24 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
                 &Array1::<f32>::from_vec(line));
         }
     }
-
-    let chunk_size = 4;
     let inputs = Array2::<f32>::reversed_axes(inputs);
-    for input in inputs.axis_chunks_iter(Axis(0), chunk_size) {
-        stream.write_u32::<NetworkEndian>(input.rows() as u32)
-            .expect("Error sending inputs.");
-        for i in input.iter() {
-            stream.write_f32::<NetworkEndian>(*i).expect("Error sending inputs.");
-        }
-        stream.flush().unwrap();
+
+    let mut stream = TcpStream::connect(host);
+    while stream.is_err() {
+        sleep(Duration::from_millis(50));
+        stream = TcpStream::connect(host);
     }
-    stream.write_u32::<NetworkEndian>(0).expect("Error sending inputs.");
+    let mut stream = BufWriter::new(stream.unwrap());
+    stream.write_u32::<NetworkEndian>(N_INPUTS as u32).unwrap();
+
+    Zip::from(inputs.genrows())
+        .apply(|input| {
+            Zip::from(&input)
+                .apply(|i| { 
+                    stream.write_f32::<NetworkEndian>(*i)
+                        .expect("Error sending inputs.");
+                });
+        });
 }
 
 fn main() {
