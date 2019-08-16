@@ -1,15 +1,16 @@
+WEIGHT_SRC_FILE?=data/weight.hdf5
+INPUT_FILE_1?=data/GSE25066-Normal-50-sgx.txt
+INPUT_FILE_2?=data/GSE25066-Tumor-50-sgx.txt
+HOST?=localhost
+PORT?=1237
+
 FTXSGX_RUNNER:=ftxsgx-runner
 FTXSGX_EFL2SGXS:=ftxsgx-elf2sgxs
 ENCLAVE_CARGO:=cargo
 ENCLAVE_CARGO_PARAMS:=build --release
 
 ENCLAVE_FILE:=build/enclave.sgxs
-LAUNCHER=launcher/target/release/launcher
-WEIGHT_SRC_FILE?=data/weight.hdf5
-INPUT_FILE_1?=data/GSE25066-Normal-50-sgx.txt
-INPUT_FILE_2?=data/GSE25066-Tumor-50-sgx.txt
-HOST?=localhost
-PORT?=1237
+LAUNCHER:=launcher/target/release/launcher
 
 PREPROCESS_WEIGHT_SCRIPT:=scripts/preprocess.py
 WEIGHT_TAR_FILE:=build/weight.bin
@@ -18,9 +19,9 @@ CONFIG_FILE?=config
 ENCLAVE_MODE?=1
 DEBUG?=0
 
-TARGET=$(LAUNCHER)
-LAUNCH=$(LAUNCHER) launcher $(PORT) $(WEIGHT_ENC_FILE)
-CLIENT=$(LAUNCHER) client $(HOST):$(PORT) $(INPUT_FILE_1) $(INPUT_FILE_2)
+TARGET:=$(LAUNCHER)
+LAUNCH:=$(LAUNCHER) launcher $(PORT) $(WEIGHT_ENC_FILE)
+CLIENT:=$(LAUNCHER) client $(HOST):$(PORT) $(INPUT_FILE_1) $(INPUT_FILE_2)
 
 ifeq ($(DEBUG), 1)
     ENCLAVE_CARGO_PARAMS+=--features debug 
