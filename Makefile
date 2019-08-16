@@ -51,9 +51,7 @@ run: build $(INPUT_FILE_1) $(INPUT_FILE_2) $(WEIGHT_ENC_FILE)
 	$(CLIENT) &
 	$(LAUNCH)
 
-preprocess: $(WEIGHT_ENC_FILE)
-
-$(WEIGHT_ENC_FILE): $(WEIGHT_TAR_FILE) $(LAUNCHER)
+preprocess: $(WEIGHT_TAR_FILE) $(LAUNCHER)
 	mkdir -p build
 	$(LAUNCHER) encrypt $(WEIGHT_TAR_FILE) $(WEIGHT_ENC_FILE)
 

@@ -10,6 +10,7 @@ make install
 )
 
 curl https://sh.rustup.rs -sSf | sh -s -- -y
+source $HOME/.cargo/env
 rustup default nightly
 rustup target add x86_64-fortanix-unknown-sgx --toolchain nightly
 PATH="$(realpath local/bin):$PATH" \
