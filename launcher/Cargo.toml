@@ -12,3 +12,4 @@ debug = []
 [dependencies]
 byteorder = "1.3.2"
 ndarray = "0.12.1"
+ring = { git = "https://github.com/briansmith/ring.git", rev = "78b18778c7f3fba7a89ba31a754a670ddb285727" } 

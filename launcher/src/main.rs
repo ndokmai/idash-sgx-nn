@@ -1,11 +1,14 @@
 use std::net::{TcpStream, TcpListener, Shutdown};
 use std::env::{args};
 use std::fs::{File};
-use std::io::{Read, Write, BufReader, BufRead, BufWriter};
+use std::io::{Read, Write, BufReader, BufRead};
 use std::{thread::sleep, time::Duration};
 use std::process::Command;
 use byteorder::{NetworkEndian, WriteBytesExt};
 use ndarray::{Array1, Array2, s, Zip};
+use crate::encryption::EncryptedWriter;
+
+mod encryption;
 
 #[cfg(not(feature = "debug"))]
 const N_INPUTS: usize = 100; 
@@ -14,6 +17,9 @@ const N_INPUTS: usize = 100;
 const N_INPUTS: usize = 1; 
 
 const INPUT_LEN: usize = 12634;
+const TCP_BUF: usize = 0x100000;
+const DUMMY_INPUT_KEY: [u8; 16] = [0u8; 16];
+const DUMMY_FILE_KEY: [u8; 16] = [1u8; 16];
 
 fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str) {
     let mut child = None;
@@ -52,7 +58,6 @@ fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str
         let ecode = child.unwrap().wait()
             .expect("failed to wait on child");
         assert!(ecode.success());
-
     }
 }
 
@@ -98,7 +103,9 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
         sleep(Duration::from_millis(50));
         stream = TcpStream::connect(host);
     }
-    let mut stream = BufWriter::new(stream.unwrap());
+    let mut stream = EncryptedWriter::with_capacity(TCP_BUF, 
+                                                    stream.unwrap(),
+                                                    &DUMMY_INPUT_KEY);
     stream.write_u32::<NetworkEndian>(N_INPUTS as u32).unwrap();
     Zip::from(inputs.genrows())
         .apply(|input| {
@@ -108,6 +115,16 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
                        .expect("Error sending inputs."));
 
         });
+}
+
+fn file_encryptor(in_file_name: &str, out_file_name: &str) {
+    let mut in_file = BufReader::new(
+        File::open(in_file_name).unwrap());
+    let mut out_file = EncryptedWriter::with_capacity(
+        TCP_BUF,
+        File::create(out_file_name).unwrap(),
+        &DUMMY_FILE_KEY);
+    std::io::copy(&mut in_file, &mut out_file).unwrap();
 }
 
 fn main() {
@@ -131,6 +148,12 @@ fn main() {
                 &args().nth(2).unwrap()[..],
                 &args().nth(3).unwrap()[..],
                 &args().nth(4).unwrap()[..],
+                );
+        }
+        "encrypt" => {
+            file_encryptor(
+                &args().nth(2).unwrap()[..],
+                &args().nth(3).unwrap()[..],
                 );
         }
         _ => panic!("Shouldn't happen"),

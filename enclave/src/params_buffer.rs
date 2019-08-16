@@ -1,5 +1,4 @@
-use std::io::BufReader;
-use std::net::TcpStream;
+use std::io::Read;
 use std::cell::Cell;
 use byteorder::{ReadBytesExt, NativeEndian};
 
@@ -7,14 +6,13 @@ pub trait ParamsBuffer: Send {
     fn getn_ref(&self, n: usize) -> &[f32];
 }
 
-pub struct MemTcpParamsBuffer {
+pub struct MemParamsBuffer {
     params: Vec<f32>,
     cursor: Cell<usize>,
 }
 
-impl MemTcpParamsBuffer {
-    pub fn new(stream: TcpStream) -> Self {
-        let mut stream = BufReader::new(stream);
+impl MemParamsBuffer {
+    pub fn new<R: Read>(mut stream: R) -> Self {
         let mut params = Vec::new();
         let mut next = stream.read_f32::<NativeEndian>();
         while next.is_ok() {
@@ -25,7 +23,7 @@ impl MemTcpParamsBuffer {
     }
 }
 
-impl ParamsBuffer for MemTcpParamsBuffer {
+impl ParamsBuffer for MemParamsBuffer {
     fn getn_ref(&self, n: usize) -> &[f32] {
         let cursor = self.cursor.get();
         let out = &self.params[cursor..(cursor+n)];
