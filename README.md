@@ -2,6 +2,11 @@
 ## Dependencies
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Fortanix EDP](https://edp.fortanix.com/docs/installation/guide/)
+### Installing dependencies for bio-sgx
+From the main directory:
+```bash
+source scripts/bio-sgx-deps-install.sh
+```
 ## Build
 To build in the SGX Enclave mode:
 ```bash
