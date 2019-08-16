@@ -5,9 +5,8 @@ use std::io::{Read, Write, BufReader, BufRead, BufWriter};
 use std::{thread::sleep, time::Duration};
 use std::process::Command;
 use byteorder::{NetworkEndian, WriteBytesExt};
-use ndarray::{Array1, Array2, s, Axis};
+use ndarray::{Array1, Array2, s, Zip};
 
-const CHUNK_SIZE: usize = 8;
 const N_INPUTS: usize = 100; 
 const INPUT_LEN: usize = 12634;
 
@@ -95,16 +94,15 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
         stream = TcpStream::connect(host);
     }
     let mut stream = BufWriter::new(stream.unwrap());
+    stream.write_u32::<NetworkEndian>(N_INPUTS as u32).unwrap();
+    Zip::from(inputs.genrows())
+        .apply(|input| {
+            Zip::from(&input)
+                .apply(|i| 
+                       stream.write_f32::<NetworkEndian>(*i)
+                       .expect("Error sending inputs."));
 
-    for input in inputs.axis_chunks_iter(Axis(0), CHUNK_SIZE) {
-        stream.write_u32::<NetworkEndian>(input.rows() as u32)
-            .expect("Error sending inputs.");
-        for i in input.iter() {
-            stream.write_f32::<NetworkEndian>(*i).expect("Error sending inputs.");
-        }
-        stream.flush().unwrap();
-    }
-    stream.write_u32::<NetworkEndian>(0).expect("Error sending inputs.");
+        });
 }
 
 fn main() {

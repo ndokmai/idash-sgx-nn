@@ -14,7 +14,6 @@ mod weights_buffer;
 mod layers;
 
 const N_THREAD: usize = 8;
-const N_MAX: usize = 20;
 const INPUT_LEN: usize = 12634;
 
 #[allow(dead_code)]
@@ -106,26 +105,32 @@ fn nn_eval(inputs: Array2<f32>, weights: &Box<dyn WeightsBuffer>) -> Array1<f32>
 
 
 fn main() {
-    let mut stream = TcpStream::connect("localhost:1234")
-                                    .expect("Unable to connect.");
+    let (tx_port, rx_port) = std::sync::mpsc::channel();
+    let (tx_weights, rx_weights) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut stream = TcpStream::connect("localhost:1234")
+            .expect("Unable to connect.");
 
-    let port = stream.read_u16::<NetworkEndian>().unwrap();
-    let weights = Box::new(MemTcpWeightsBuffer::new(stream)) 
-        as Box<dyn WeightsBuffer>;
+        let port = stream.read_u16::<NetworkEndian>().unwrap();
+        tx_port.send(port).unwrap();
 
-    // lister to client
+        let weights = Box::new(MemTcpWeightsBuffer::new(stream)) 
+            as Box<dyn WeightsBuffer>;
+        tx_weights.send(weights).unwrap();
+    });
+
+    let port = rx_port.recv().unwrap();
     let listener = TcpListener::bind(("localhost", port)).unwrap();
     let mut stream = BufReader::new(listener.accept().unwrap().0);
+    let mut n_inputs = stream.read_u32::<NetworkEndian>().unwrap() as usize;
+
     rayon::ThreadPoolBuilder::new().num_threads(N_THREAD).build_global().unwrap();
-    loop {
-        let n_inputs = stream.read_u32::<NetworkEndian>().unwrap() as usize;
-        if n_inputs==0 {
-            break;
-        }
-        if n_inputs > N_MAX {
-            panic!("Too many inputs");
-        }
-        let mut inputs = Array2::<f32>::zeros((n_inputs, INPUT_LEN));
+
+    let weights = rx_weights.recv().unwrap();
+    while n_inputs !=0 {
+        let batch_size = usize::min(N_THREAD, n_inputs);
+        n_inputs -= batch_size;
+        let mut inputs = Array2::<f32>::zeros((batch_size, INPUT_LEN));
         Zip::from(&mut inputs)
             .apply(|i| *i = stream.read_f32::<NetworkEndian>().unwrap());
         let outputs = nn_eval(inputs, &weights);
@@ -134,7 +139,5 @@ fn main() {
         }
         println!("");
     }
-    println!("Done!");
-    
 }
 

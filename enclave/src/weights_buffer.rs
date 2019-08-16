@@ -3,7 +3,7 @@ use std::net::TcpStream;
 use std::cell::Cell;
 use byteorder::{ReadBytesExt,NativeEndian};
 
-pub trait WeightsBuffer {
+pub trait WeightsBuffer: Send {
     fn getn(&self, n: usize) -> Vec<f32>;
     fn getn_ref(&self, n: usize) -> &[f32];
 }
