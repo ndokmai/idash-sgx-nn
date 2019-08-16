@@ -7,7 +7,12 @@ use std::process::Command;
 use byteorder::{NetworkEndian, WriteBytesExt};
 use ndarray::{Array1, Array2, s, Zip};
 
+#[cfg(not(feature = "debug"))]
 const N_INPUTS: usize = 100; 
+
+#[cfg(feature = "debug")]
+const N_INPUTS: usize = 1; 
+
 const INPUT_LEN: usize = 12634;
 
 fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str) {
@@ -80,9 +85,9 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
                 .split_whitespace()
                 .map(|x| x.parse::<f32>().unwrap())
                 .skip(2)
-                .take(N_INPUTS-50)
+                .take(i64::max(0, N_INPUTS as i64-50) as usize)
                 .collect::<Vec<_>>();
-            inputs.slice_mut(s![i, (N_INPUTS-50)..]).assign(
+            inputs.slice_mut(s![i, i64::max(0, N_INPUTS as i64-50) as usize..]).assign(
                 &Array1::<f32>::from_vec(line));
         }
     }

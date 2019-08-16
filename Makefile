@@ -15,10 +15,17 @@ PREPROCESS_WEIGHT_SCRIPT:=scripts/preprocess.py
 WEIGHT_TAR_FILE:=build/weight.bin
 CONFIG_FILE?=config
 ENCLAVE_MODE?=1
+DEBUG?=0
 
 TARGET=$(LAUNCHER)
 LAUNCH=$(LAUNCHER) launcher $(PORT) $(WEIGHT_TAR_FILE)
 CLIENT=$(LAUNCHER) client $(HOST):$(PORT) $(INPUT_FILE_1) $(INPUT_FILE_2)
+
+ifeq ($(DEBUG), 1)
+    ENCLAVE_CARGO_PARAMS+=--features debug 
+    LAUNCHER_CARGO_PARAMS+=--features debug 
+endif
+
 ifeq ($(ENCLAVE_MODE), 1)
     TARGET+=$(ENCLAVE_FILE)
     ENCLAVE_EFL:=enclave/target/x86_64-fortanix-unknown-sgx/release/enclave
