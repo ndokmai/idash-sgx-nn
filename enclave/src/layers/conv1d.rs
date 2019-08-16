@@ -1,15 +1,15 @@
-use ndarray::{Array2, Array3, ArrayView3, s, Zip};
+use ndarray::{Array3, ArrayView2, ArrayView3, s, Zip};
 use ndarray_parallel::prelude::*;
 use crate::weights_buffer::WeightsBuffer;
 
 pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize, 
-              strides: usize, weights: &mut Box<dyn WeightsBuffer>) -> Array3<f32> {
+              strides: usize, weights: &Box<dyn WeightsBuffer>) -> Array3<f32> {
     if kernel_size==1 {
         let mut outputs = Array3::<f32>::zeros(
             (inputs.shape()[0], inputs.shape()[1], n_kernel));
         let weights = 
-            Array2::<f32>::from_shape_vec((n_kernel, inputs.shape()[2]), 
-                                          weights.getn(n_kernel*inputs.shape()[2]))
+            ArrayView2::<f32>::from_shape((n_kernel, inputs.shape()[2]), 
+                                          weights.getn_ref(n_kernel*inputs.shape()[2]))
             .unwrap();
         Zip::from(outputs.outer_iter_mut())
             .and(inputs.outer_iter())
@@ -19,8 +19,8 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
         let mut outputs = Array3::<f32>::zeros(
             (inputs.shape()[0], inputs.shape()[1], n_kernel));
         let weights = 
-            Array3::<f32>::from_shape_vec((n_kernel, kernel_size, inputs.shape()[2]), 
-                                          weights.getn(n_kernel*inputs.shape()[2]*
+            ArrayView3::<f32>::from_shape((n_kernel, kernel_size, inputs.shape()[2]), 
+                                          weights.getn_ref(n_kernel*inputs.shape()[2]*
                                                        kernel_size))
             .unwrap();
         Zip::from(outputs.outer_iter_mut())
@@ -71,8 +71,8 @@ pub fn conv1d(inputs: ArrayView3<f32>, n_kernel: usize, kernel_size: usize,
         let mut outputs = Array3::<f32>::zeros(
             (inputs.shape()[0], (inputs.shape()[1]+1)/2, n_kernel));
         let weights = 
-            Array3::<f32>::from_shape_vec((n_kernel, kernel_size, inputs.shape()[2]), 
-                                          weights.getn(n_kernel*inputs.shape()[2]*
+            ArrayView3::<f32>::from_shape((n_kernel, kernel_size, inputs.shape()[2]), 
+                                          weights.getn_ref(n_kernel*inputs.shape()[2]*
                                                        kernel_size))
             .unwrap();
 

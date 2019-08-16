@@ -7,6 +7,10 @@ use std::process::Command;
 use byteorder::{NetworkEndian, WriteBytesExt};
 use ndarray::{Array1, Array2, s, Axis};
 
+const CHUNK_SIZE: usize = 8;
+const N_INPUTS: usize = 100; 
+const INPUT_LEN: usize = 12634;
+
 fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str) {
     let mut child = None;
     match laucher_cmd {
@@ -48,15 +52,7 @@ fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str
     }
 }
 
-
 fn client(host: &str, fname_1: &str, fname_2: &str) {
-
-    let mut stream = TcpStream::connect(host);
-    while stream.is_err() {
-        sleep(Duration::from_millis(50));
-        stream = TcpStream::connect(host);
-    }
-    let mut stream = BufWriter::new(stream.unwrap());
 
     // send inputs files
     let inputs_file_1 = BufReader::new(
@@ -68,8 +64,6 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
     let mut iter_2 = inputs_file_2.lines();
     iter_2.next();
 
-    const N_INPUTS: usize = 100; 
-    const INPUT_LEN: usize = 12634;
     let mut inputs = Array2::zeros((INPUT_LEN, N_INPUTS));
     for (i, line) in iter_1.enumerate() {
         let line = line.unwrap()
@@ -93,10 +87,16 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
                 &Array1::<f32>::from_vec(line));
         }
     }
-
-    let chunk_size = 4;
     let inputs = Array2::<f32>::reversed_axes(inputs);
-    for input in inputs.axis_chunks_iter(Axis(0), chunk_size) {
+
+    let mut stream = TcpStream::connect(host);
+    while stream.is_err() {
+        sleep(Duration::from_millis(50));
+        stream = TcpStream::connect(host);
+    }
+    let mut stream = BufWriter::new(stream.unwrap());
+
+    for input in inputs.axis_chunks_iter(Axis(0), CHUNK_SIZE) {
         stream.write_u32::<NetworkEndian>(input.rows() as u32)
             .expect("Error sending inputs.");
         for i in input.iter() {
