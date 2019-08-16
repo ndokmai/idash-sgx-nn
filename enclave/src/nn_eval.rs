@@ -6,7 +6,7 @@ use crate::params_buffer::ParamsBuffer;
 fn debug_print(title: &str, array: ArrayView2<f32>) {
     const THRESHOLD: usize = 1000;
     const MARGIN: i32 = 3;
-    println!("----------{}----------", title);
+    eprintln!("----------{}----------", title);
     if array.len() < THRESHOLD {
         let string = array.genrows()
             .into_iter()
@@ -16,27 +16,27 @@ fn debug_print(title: &str, array: ArrayView2<f32>) {
                              .join(", ")))
             .collect::<Vec<_>>()
             .join("\n");
-        print!("{}", string);
+        eprint!("{}", string);
     } else {
         for (i, r) in array.genrows().into_iter().enumerate() {
             if i==MARGIN as usize {
-                println!("...");
+                eprintln!("...");
             } else if i < MARGIN as usize || i > array.rows() - MARGIN as usize - 1 {
-                print!("[ ");
+                eprint!("[ ");
                 for (j, c) in r.iter().enumerate() {
                     if j==MARGIN as usize {
-                        print!("\t...\t");
+                        eprint!("\t...\t");
                     } else if j == r.len() - 1 {
-                       print!("{:.10}", c);
+                       eprint!("{:.10}", c);
                     } else if j < MARGIN as usize || j > r.len() - MARGIN as usize - 1  {
-                       print!("{:.10}\t", c);
+                       eprint!("{:.10}\t", c);
                     } 
                 }
-                println!("\t]");
+                eprintln!("\t]");
             } 
         }
     }
-    println!("\n\n");
+    eprintln!("\n\n");
 }
 
 #[cfg(not(feature = "debug"))]

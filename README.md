@@ -27,5 +27,5 @@ make preprocess WEIGHT_SRC_FILE=<dir_to_hdf5_file>
 ```
 3. Run a local benchmark:
 ```bash
-time make run INPUT_FILE_1=<dir_to_input_file_1> INPUT_FILE_2=<dir_to_input_file_2>
+time make run INPUT_FILE_DIR=<input_file_dir>
 ```

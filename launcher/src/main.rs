@@ -1,20 +1,17 @@
 use std::net::{TcpStream, TcpListener, Shutdown};
-use std::env::{args};
-use std::fs::{File};
-use std::io::{Read, Write, BufReader, BufRead};
+use std::env::args;
+use std::fs::{read_dir, File};
+use std::io::{Read, Write, BufReader, BufRead, Result};
 use std::{thread::sleep, time::Duration};
 use std::process::Command;
+use std::thread;
+use std::path::Path;
+use std::sync::mpsc::channel;
 use byteorder::{NetworkEndian, WriteBytesExt};
 use ndarray::{Array1, Array2, s, Zip};
 use crate::encryption::EncryptedWriter;
 
 mod encryption;
-
-#[cfg(not(feature = "debug"))]
-const N_INPUTS: usize = 100; 
-
-#[cfg(feature = "debug")]
-const N_INPUTS: usize = 1; 
 
 const INPUT_LEN: usize = 12634;
 const TCP_BUF: usize = 0x100000;
@@ -61,42 +58,42 @@ fn launcher(client_port: u16, fname: &str, laucher_cmd: &str, enclave_file: &str
     }
 }
 
-fn client(host: &str, fname_1: &str, fname_2: &str) {
-
-    // send inputs files
-    let inputs_file_1 = BufReader::new(
-        File::open(fname_1).unwrap());
-    let mut iter_1 = inputs_file_1.lines();
-    iter_1.next();
-    let inputs_file_2 = BufReader::new(
-        File::open(fname_2).unwrap());
-    let mut iter_2 = inputs_file_2.lines();
-    iter_2.next();
-
-    let mut inputs = Array2::zeros((INPUT_LEN, N_INPUTS));
-    for (i, line) in iter_1.enumerate() {
-        let line = line.unwrap()
+fn client_read_single_file(f: impl Read) -> Result<Array2<f32>> {
+    let inputs_file = BufReader::new(f);
+    let mut iter = inputs_file.lines();
+    let n_inputs = iter.next().unwrap()?.split_whitespace().skip(3).count();
+    let mut inputs = Array2::zeros((INPUT_LEN, n_inputs));
+    for (i, line) in iter.enumerate() {
+        let line = line?
             .split_whitespace()
-            .map(|x| x.parse::<f32>().unwrap())
             .skip(2)
-            .take(usize::min(50, N_INPUTS))
+            .map(|x| x.parse::<f32>().unwrap())
             .collect::<Vec<_>>();
-        inputs.slice_mut(s![i, ..usize::min(50, N_INPUTS)]).assign(
+        inputs.slice_mut(s![i, ..]).assign(
             &Array1::<f32>::from_vec(line));
     }
-    if i64::max(0, N_INPUTS as i64 - 50) > 0 {
-        for (i, line) in iter_2.enumerate() {
-            let line = line.unwrap()
-                .split_whitespace()
-                .map(|x| x.parse::<f32>().unwrap())
-                .skip(2)
-                .take(i64::max(0, N_INPUTS as i64-50) as usize)
-                .collect::<Vec<_>>();
-            inputs.slice_mut(s![i, i64::max(0, N_INPUTS as i64-50) as usize..]).assign(
-                &Array1::<f32>::from_vec(line));
+    Ok(Array2::<f32>::reversed_axes(inputs))
+}
+
+fn client(host: &str, fdir: &str) {
+    let fdir = fdir.to_owned();
+    let (tx, rx) =  channel();
+    thread::spawn(move || {
+        let dir = Path::new(&fdir);
+        if dir.is_dir() {
+            eprintln!("Client: sending files...");
+            for (_i, entry) in read_dir(dir).unwrap().enumerate() {
+                eprintln!("Client: file {} completed", _i);
+                let path = entry.unwrap().path();
+                let f = File::open(path).unwrap();
+                let inputs = client_read_single_file(f).unwrap();
+                tx.send(inputs).unwrap();
+            }
+        } else {
+            panic!("Empty directory");
         }
-    }
-    let inputs = Array2::<f32>::reversed_axes(inputs);
+        eprintln!("Client: finished")
+    });
 
     let mut stream = TcpStream::connect(host);
     while stream.is_err() {
@@ -106,15 +103,21 @@ fn client(host: &str, fname_1: &str, fname_2: &str) {
     let mut stream = EncryptedWriter::with_capacity(TCP_BUF, 
                                                     stream.unwrap(),
                                                     &DUMMY_INPUT_KEY);
-    stream.write_u32::<NetworkEndian>(N_INPUTS as u32).unwrap();
-    Zip::from(inputs.genrows())
-        .apply(|input| {
-            Zip::from(&input)
-                .apply(|i| 
-                       stream.write_f32::<NetworkEndian>(*i)
-                       .expect("Error sending inputs."));
+    loop {
+        match rx.recv() {
+            Ok(inputs) => {
+                Zip::from(inputs.genrows())
+                    .apply(|input| {
+                        Zip::from(&input)
+                            .apply(|i| 
+                                   stream.write_f32::<NetworkEndian>(*i)
+                                   .expect("Error sending inputs."));
 
-        });
+                    });
+            },
+            Err(_) => break,
+        }
+    }
 }
 
 fn file_encryptor(in_file_name: &str, out_file_name: &str) {
@@ -147,7 +150,6 @@ fn main() {
             client(
                 &args().nth(2).unwrap()[..],
                 &args().nth(3).unwrap()[..],
-                &args().nth(4).unwrap()[..],
                 );
         }
         "encrypt" => {

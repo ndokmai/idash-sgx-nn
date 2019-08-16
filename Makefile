@@ -1,6 +1,5 @@
 WEIGHT_SRC_FILE?=data/weight.hdf5
-INPUT_FILE_1?=data/GSE25066-Normal-50-sgx.txt
-INPUT_FILE_2?=data/GSE25066-Tumor-50-sgx.txt
+INPUT_FILE_DIR?=data/inputs
 HOST?=localhost
 PORT?=1237
 
@@ -21,7 +20,7 @@ DEBUG?=0
 
 TARGET:=$(LAUNCHER)
 LAUNCH:=$(LAUNCHER) launcher $(PORT) $(WEIGHT_ENC_FILE)
-CLIENT:=$(LAUNCHER) client $(HOST):$(PORT) $(INPUT_FILE_1) $(INPUT_FILE_2)
+CLIENT:=$(LAUNCHER) client $(HOST):$(PORT) $(INPUT_FILE_DIR)
 
 ifeq ($(DEBUG), 1)
     ENCLAVE_CARGO_PARAMS+=--features debug 
@@ -47,7 +46,7 @@ build: $(TARGET)
 	cd enclave; \
 	$(ENCLAVE_CARGO) $(ENCLAVE_CARGO_PARAMS)
 
-run: build $(INPUT_FILE_1) $(INPUT_FILE_2) $(WEIGHT_ENC_FILE)
+run: build $(INPUT_FILE_DIR) $(WEIGHT_ENC_FILE)
 	$(CLIENT) &
 	$(LAUNCH)
 

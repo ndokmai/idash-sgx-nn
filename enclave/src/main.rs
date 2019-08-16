@@ -1,5 +1,5 @@
 use std::net::{TcpListener, TcpStream};
-use ndarray::{Array2, Zip};
+use ndarray::Array2;
 use byteorder::{NetworkEndian, ReadBytesExt};
 use crate::params_buffer::{ParamsBuffer, MemParamsBuffer};
 use crate::nn_eval::nn_eval;
@@ -17,6 +17,7 @@ const DUMMY_INPUT_KEY: [u8; 16] = [0u8; 16];
 const DUMMY_FILE_KEY: [u8; 16] = [1u8; 16];
 
 fn main() {
+    eprintln!("Server: evaluating...");
     let (tx_port, rx_port) = std::sync::mpsc::channel();
     let (tx_params, rx_params) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
@@ -36,22 +37,42 @@ fn main() {
         TCP_BUF,
         listener.accept().unwrap().0,
         &DUMMY_INPUT_KEY);
-    let mut n_inputs = stream.read_u32::<NetworkEndian>().unwrap() as usize;
-
-    rayon::ThreadPoolBuilder::new().num_threads(N_THREAD).build_global().unwrap();
 
     let params_buf = rx_params.recv().unwrap();
-    while n_inputs !=0 {
-        let batch_size = usize::min(N_THREAD, n_inputs);
-        n_inputs -= batch_size;
-        let mut inputs = Array2::<f32>::zeros((batch_size, INPUT_LEN));
-        Zip::from(&mut inputs)
-            .apply(|i| *i = stream.read_f32::<NetworkEndian>().unwrap());
-        let outputs = nn_eval(inputs, &params_buf);
-        for o in &outputs {
-            print!("{}\t", o);
+    rayon::ThreadPoolBuilder::new().num_threads(N_THREAD).build_global().unwrap();
+    let mut done = false;
+    let mut all_outputs = Vec::new();
+    loop {
+        let mut buf = Vec::with_capacity(N_THREAD*INPUT_LEN);
+        for _ in 0..N_THREAD {
+            let next = stream.read_f32::<NetworkEndian>();
+            match next {
+                Ok(next) => buf.push(next),
+                Err(_) => {
+                    done = true;
+                    break;
+                }
+            }
+            for _ in 0..(INPUT_LEN-1) {
+                buf.push(stream.read_f32::<NetworkEndian>().unwrap());
+            }
         }
-        println!("");
+        let inputs = Array2::<f32>::from_shape_vec(
+            (buf.len()/INPUT_LEN, INPUT_LEN),
+            buf
+            ).unwrap();
+        let outputs = nn_eval(inputs, &params_buf);
+        all_outputs.push(outputs.into_raw_vec());
+        if done {
+            break;
+        }
     }
+    let mut out_str = String::new();
+    for i in all_outputs.into_iter().flatten() {
+        out_str += &format!("{}\n", i);
+    }
+    eprintln!("Server: results:");
+    print!("{}", out_str);
+    eprintln!("Server: finished");
 }
 
