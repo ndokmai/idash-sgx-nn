@@ -2,7 +2,7 @@
 ## Dependencies
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Fortanix EDP](https://edp.fortanix.com/docs/installation/guide/)
-### Installing dependencies for bio-sgx
+### Installing dependencies for a bio-sgx node
 From the main directory:
 ```bash
 source scripts/bio-sgx-deps-install.sh
@@ -21,7 +21,7 @@ make ENCLAVE_MODE=0
 ```bash
 make
 ```
-2. Preprocess the weight file:
+2. Preprocess and encrypt the weight file:
 ```bash
 make preprocess WEIGHT_SRC_FILE=<dir_to_hdf5_file>
 ```

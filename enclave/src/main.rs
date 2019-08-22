@@ -62,7 +62,14 @@ fn main() {
             buf
             ).unwrap();
         let outputs = nn_eval(inputs, &params_buf);
-        all_outputs.push(outputs.into_raw_vec());
+        all_outputs.push(
+            outputs.into_raw_vec()
+            .into_iter()
+            .map(|x| match x>0.5 {
+                true => 1,
+                false => 0,
+            })
+            .collect::<Vec<u8>>());
         if done {
             break;
         }
