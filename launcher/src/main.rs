@@ -83,8 +83,8 @@ fn client(host: &str, fdir: &str) {
         if dir.is_dir() {
             eprintln!("Client: sending files...");
             for (_i, entry) in read_dir(dir).unwrap().enumerate() {
-                eprintln!("Client: file {} completed", _i);
                 let path = entry.unwrap().path();
+                eprintln!("Client: file {:?} completed", path.clone());
                 let f = File::open(path).unwrap();
                 let inputs = client_read_single_file(f).unwrap();
                 tx.send(inputs).unwrap();
