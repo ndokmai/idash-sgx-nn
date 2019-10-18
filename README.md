@@ -1,4 +1,6 @@
 # iDASH's Neural Network Evaluation in SGX
+This is a winning solution to [Track III](http://www.humangenomeprivacy.org/2019/competition-tasks.html) of the [iDASH Privacy & Security Workshop 2019](http://www.humangenomeprivacy.org). 
+
 ## Dependencies
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Fortanix EDP](https://edp.fortanix.com/docs/installation/guide/)
